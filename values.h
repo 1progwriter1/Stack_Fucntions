@@ -10,6 +10,8 @@ struct Stack {
     Elem_t *data;
     Elem_t size;
     Elem_t capacity;
+    char *file;
+    int line;
 };
 
 enum Result {

@@ -4,7 +4,7 @@
 #include "assert.h"
 #include <stdlib.h>
 
-#define dump(stk, error) unsigned int error = 0; StackDump(StackVerify(stk), (char *)__FILE__, __LINE__, (char *)__func__, stk);
+#define dump(stk, error) StackDump(error, (char *)__FILE__, __LINE__, (char *)__func__, stk);
 
 const int SIZESTK = 10;
 const int INCREASE = 2;
@@ -12,15 +12,13 @@ const int EMPTY_POSITIONS = 3;
 const int NUM_OF_ERRORS = 6;
 const int POISON = -1e6;
 
-
-char file[] = "hello";
-char func[] = "main.b";
-
 enum Result StackCtor(Stack *stk) {
 
     if (!stk)
         return NULL_POINTER;
     stk->data = (Elem_t *) calloc (SIZESTK, sizeof (int));
+    for (size_t i = 0; i < SIZESTK; i++)
+        stk->data[i] = POISON;
     stk->capacity = SIZESTK;
     stk->size = 0;
 
@@ -29,9 +27,11 @@ enum Result StackCtor(Stack *stk) {
 
 enum Result StackPush(Stack *stk, Elem_t n) {
 
+    assert(stk);
+
     unsigned int error = StackVerify(stk);
     if (error != 0) {
-        dump(stk, error);
+        dump(stk, error)
         return ERROR;
     }
     else {
@@ -47,15 +47,17 @@ enum Result StackPush(Stack *stk, Elem_t n) {
 
 enum Result StackPop(Stack *stk, Elem_t *n) {
 
+    assert(stk);
+    assert(n);
+
     unsigned int error = StackVerify(stk);
     if (error != 0) {
-        printf("<%u>\n", error);
-        return NULL_POINTER;
+        dump(stk, error)
     }
     else {
         if (stk->size - 1 >= 0) {
             *n = stk->data[--stk->size];
-            stk->data[stk->size] = NULL;
+            stk->data[stk->size] = POISON;
             if (stk->capacity > SIZESTK && stk->capacity - stk->size > SIZESTK + 5) {
                 stk->data = StackResize(stk, CUT);
                 if (!stk->data)
@@ -82,9 +84,11 @@ enum Result StackDtor(Stack *stk) {
 
 void PrintStack(Stack *stk) {
 
+    assert(stk);
+
     unsigned int error = StackVerify(stk);
     if (error != 0) {
-        dump(stk ,error);
+        dump(stk ,error)
     }
     else {
         for (size_t i = 0; i < stk->capacity; i++)
@@ -95,6 +99,8 @@ void PrintStack(Stack *stk) {
 }
 
 unsigned int StackVerify(const Stack *stk) {
+
+    assert(stk);
 
     unsigned int error = 0;
 
@@ -147,6 +153,10 @@ const char* StackStrError (enum Result error) {
 
 void StackDump(unsigned int error, char *file, int line, char *func, Stack *stk) {
 
+    assert(file);
+    assert(func);
+    assert(stk);
+
     if (error != 0) {
         printf("Error codes: ");
 
@@ -162,7 +172,7 @@ void StackDump(unsigned int error, char *file, int line, char *func, Stack *stk)
         }
         printf("\n");
 
-        printf("Stack [%p] from %s (%d)\n\n", stk, file, line);
+        printf("Stack [%p] from %s (%d)\n\n", stk, stk->file, stk->line);
 
         PrintInfo(stk, file, func, line);
     }
@@ -176,21 +186,21 @@ void PrintInfo(Stack *stk, char *file, const char *func, int line) {
 
     int col = 0;
 
-    printf("Stack [%p] from \"%s\" (%d)\ncalled from %s\n", stk, file, line, func);
+    printf("Stack [%p] from \"%s\" (%d)\ncalled from %s (%d)\n", stk, stk->file, stk->line, file, line);
     printf("{size = %d\n capacity = %d\n data [%p]\n", stk->size, stk->capacity, stk->data);
-    if (stk->capacity > 0) {
+    if (stk->capacity > 0 && stk->data) {
         printf("\t{\n");
         for (size_t i = 0; i < stk->capacity && col < EMPTY_POSITIONS; i++)
-            if (!stk->data[i]) {
+            if (stk->data[i] == POISON) {
                 col++;
-                printf("\t [%lu] = NULL(POISON)\n", i);
+                printf("\t [%lu] = POISON\n", i);
             }
             else {
                 printf("\t*[%lu] = %d\n", i, stk->data[i]);
             }
         printf("\t}\n");
     }
-    printf("}");
+    printf("}\n");
 }
 
 Elem_t *StackResize(Stack *stk, const int operation) {
@@ -200,6 +210,9 @@ Elem_t *StackResize(Stack *stk, const int operation) {
     if (operation) {
         stk->capacity *= INCREASE;
         return (Elem_t *) realloc (stk, sizeof (Elem_t) * stk->capacity);
+        for (size_t i = stk->size; i < stk->capacity; i++) {
+            stk->data[i] = POISON;
+        }
     }
     stk->capacity /= INCREASE;
     return (Elem_t *) realloc (stk, sizeof (Elem_t) * stk->capacity);

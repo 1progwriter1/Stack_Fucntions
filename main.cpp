@@ -6,10 +6,10 @@
 
 int main() {
 
-    Stack stk = {NULL, 0, 0};
-    Stack badstk = {NULL, 0, 0};
+    Stack stk = {NULL, 0, 0, (char *)__FILE__, __LINE__};
+    Stack badstk = {NULL, 0, 0,(char *)__FILE__, __LINE__};
     StackCtor(&stk);
-    StackCtor(&stk);
+    StackCtor(&badstk);
     Elem_t n = NULL;
     /* PrintStack(&stk);
     StackPush(&stk, 24);
@@ -18,12 +18,12 @@ int main() {
     PrintStack(&stk); */
 
     badstk.data = NULL;
-    badstk.capacity = -1;
+    badstk.capacity = 10;
     badstk.size = -1;
 
     PrintStack(&badstk);
 
-    printf("\n");
+    printf("\n\n");
 
     StackPush(&stk, 7);
 
