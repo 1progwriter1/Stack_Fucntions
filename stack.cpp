@@ -20,7 +20,7 @@ const canary_t CANARY_VALUE_STACK_RIGHT = 0xAB0BA;
 const canary_t CANARY_VALUE_DATA_LEFT = 0xC01055A1;
 const canary_t CANARY_VALUE_DATA_RIGHT = 0xBADFACE;
 
-enum Result StackCtor(Stack *stk, const char *name, const char *file, const int line, const char *func) {
+enum Result StackCtor(Stack *stk, const char *name, const char *file, const int line, const char *func, int *id) {
 
     assert(stk);
     assert(name);
@@ -45,18 +45,17 @@ enum Result StackCtor(Stack *stk, const char *name, const char *file, const int 
     stk->name = name;
     stk->file = file;
     stk->line = line;
+    stk->id = *id;
     stk->canary_right = CANARY_VALUE_STACK_RIGHT;
-    stk->bite_sum = Bitessum(stk);
-
+    HashCreate(stk, *id++);
     return SUCCESS;
 }
 
-enum Result StackPush(Stack *stk, Elem_t n, Hash *hsh) {
+enum Result StackPush(Stack *stk, Elem_t n) {
 
     assert(stk);
-    assert(hsh);
 
-    unsigned int error = StackVerify(stk, hsh);
+    unsigned int error = StackVerify(stk);
     if (error != 0) {
         dump(stk, error)
         return ERROR;
@@ -68,19 +67,17 @@ enum Result StackPush(Stack *stk, Elem_t n, Hash *hsh) {
                 return NO_MEMORY;
         }
         stk->data[stk->size++] = n;
-        hsh->bite_sum = Bitessum(stk);
-        stk->bite_sum = hsh->bite_sum;
+        HashCreate(stk, stk->id);
         return SUCCESS;
     }
 }
 
-enum Result StackPop(Stack *stk, Elem_t *n, Hash *hsh) {
+enum Result StackPop(Stack *stk, Elem_t *n) {
 
     assert(stk);
     assert(n);
-    assert(hsh);
 
-    unsigned int error = StackVerify(stk, hsh);
+    unsigned int error = StackVerify(stk);
     if (error != 0) {
         dump(stk, error)
         return ERROR;
@@ -94,8 +91,8 @@ enum Result StackPop(Stack *stk, Elem_t *n, Hash *hsh) {
                 if (!stk->data)
                     return NO_MEMORY;
             }
-            hsh->bite_sum = Bitessum(stk);
-            stk->bite_sum = hsh->bite_sum;
+            HashCreate(stk, stk->id);
+
         }
         else {
             return EMPTY;
@@ -104,10 +101,9 @@ enum Result StackPop(Stack *stk, Elem_t *n, Hash *hsh) {
     }
 }
 
-enum Result StackDtor(Stack *stk, Hash *hsh) {
+enum Result StackDtor(Stack *stk, int *id) {
 
     assert(stk);
-    assert(hsh);
 
     free((canary_t *)stk->data - 1);
     stk->capacity = -1;
@@ -118,17 +114,17 @@ enum Result StackDtor(Stack *stk, Hash *hsh) {
     stk->func = NULL;
     stk->canary_left = -1;
     stk->canary_right = -1;
-    stk->bite_sum = -1;
-    HashDtor(hsh);
+    HashClean(stk->id);
+    stk->id = -1;
+    *id = *id - 1;
     return SUCCESS;
 };
 
-void PrintStack(const Stack *stk, const Hash *hsh) {
+void PrintStack(const Stack *stk) {
 
     assert(stk);
-    assert(hsh);
 
-    unsigned int error = StackVerify(stk, hsh);
+    unsigned int error = StackVerify(stk);
     if (error != 0) {
         dump(stk ,error)
     }
@@ -141,10 +137,9 @@ void PrintStack(const Stack *stk, const Hash *hsh) {
 
 }
 
-unsigned int StackVerify(const Stack *stk, const Hash *hsh) {
+unsigned int StackVerify(const Stack *stk) {
 
     assert(stk);
-    assert(hsh);
 
     unsigned int error = 0;
 
@@ -188,7 +183,7 @@ unsigned int StackVerify(const Stack *stk, const Hash *hsh) {
         error |= numerror;
 
     numerror *= 2;
-    if (stk->bite_sum != hsh->bite_sum)
+    if (!HashCheck(stk))
         error |= numerror;
 
     return error;
@@ -306,4 +301,8 @@ int compare(const void *frst, const Elem_t *scnd) {
         if (*a++ != *b++)
             return 0;
     return 1;
+}
+
+void Detor() {
+    clean();
 }

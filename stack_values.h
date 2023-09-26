@@ -17,7 +17,7 @@ struct Stack {
     const char *file;
     int line;
     const char *func;
-    unsigned long long bite_sum;
+    int id;
     canary_t canary_right;
 };
 

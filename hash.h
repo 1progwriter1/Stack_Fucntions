@@ -5,13 +5,10 @@
 #include "hash.h"
 #include "config.h"
 
-
-struct Hash {
-    unsigned long long bite_sum;
-};
-
-enum Result HashCtor(Hash *hsh, Stack *stk);
-unsigned long long Bitessum(Stack *stk);
-enum Result HashDtor(Hash *hsh);
+unsigned long long HashCount(const Stack *stk);
+enum Result HashCreate(Stack *stk, int id);
+void clean();
+void HashClean(int id);
+int HashCheck(const Stack *stk);
 
 #endif
