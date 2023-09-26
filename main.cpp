@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include "stack.h"
-#include "hash.h"
 #include "stack_values.h"
 #include "config.h"
 /**
