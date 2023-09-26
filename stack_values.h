@@ -1,7 +1,8 @@
 #ifndef VALUES_STACK
 #define VALUES_STACK
 
-typedef int Elem_t;
+#include "config.h"
+
 typedef unsigned long long canary_t;
 
 const int RAISE = 1;
@@ -16,7 +17,7 @@ struct Stack {
     const char *file;
     int line;
     const char *func;
-    long long int bite_sum;
+    unsigned long long bite_sum;
     canary_t canary_right;
 };
 
@@ -27,14 +28,13 @@ enum Result {
     INCORRECT_CAPACITY,
     INCORRECT_SIZE,
     OVERFLOW,
-    CANARY_FAULT,
+    CANARY_FAULT_STACK_LEFT,
+    CANARY_FAULT_STACK_RIGHT,
+    CANARY_FAULT_DATA_LEFT,
+    CANARY_FAULT_DATA_RIGHT,
     HASH_ERROR,
     ERROR,
     EMPTY
-};
-
-struct Hash {
-    long long int bite_sum;
 };
 
 #endif

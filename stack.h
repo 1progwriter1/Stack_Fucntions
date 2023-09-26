@@ -2,6 +2,8 @@
 #define STACK_STACK
 
 #include "stack_values.h"
+#include "config.h"
+#include "hash.h"
 
 enum Result StackCtor(Stack *stk, const char *name, const char *file, const int line, const char *func);
 enum Result StackPop(Stack *stk, Elem_t *n, Hash *hsh);
@@ -13,5 +15,6 @@ unsigned int StackVerify(const Stack *stk, const Hash *hsh);
 void PrintInfo(const Stack *stk, const char *file, const char *func, const int line);
 Elem_t *StackResize(Stack *stk, const int operation);
 const char* StackStrError (enum Result error);
+int compare(const void *frst, const Elem_t *scnd);
 
 #endif

@@ -3,17 +3,22 @@
 #include "stack_values.h"
 #include "assert.h"
 #include "hash.h"
+#include "config.h"
 #include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
 
 #define dump(stk, error) StackDump(error, (char *)__FILE__, __LINE__, (char *)__func__, stk);
 
-const int SIZESTK = 10;
+const int SIZESTK = 8;
 const int INCREASE = 2;
 const int EMPTY_POSITIONS = 3;
-const int NUM_OF_ERRORS = 8;
-const int POISON = -1e6;
-const canary_t CANARY_VALUE_STACK = 0xBADBA5EBA11;
-const canary_t CANARY_VALUE_DATA = 0xC01055A1;
+const int NUM_OF_ERRORS = 11;
+const Elem_t *POISON_PTR = &POISON;
+const canary_t CANARY_VALUE_STACK_LEFT = 0xBADBA5EBA11;
+const canary_t CANARY_VALUE_STACK_RIGHT = 0xAB0BA;
+const canary_t CANARY_VALUE_DATA_LEFT = 0xC01055A1;
+const canary_t CANARY_VALUE_DATA_RIGHT = 0xBADFACE;
 
 enum Result StackCtor(Stack *stk, const char *name, const char *file, const int line, const char *func) {
 
@@ -26,13 +31,13 @@ enum Result StackCtor(Stack *stk, const char *name, const char *file, const int 
         return NULL_POINTER;
     int length = sizeof (Elem_t) * SIZESTK + sizeof (canary_t) * 2;
     stk->data = (Elem_t *) calloc (length, sizeof (char));
-    ((canary_t *) stk->data)[0] = CANARY_VALUE_DATA;
-    stk->data = stk->data + sizeof (canary_t) / sizeof (Elem_t);
-    *((canary_t *)(stk->data + 10)) = CANARY_VALUE_DATA;
     if (!stk->data)
         return NO_MEMORY;
+    ((canary_t *) stk->data)[0] = CANARY_VALUE_DATA_LEFT;
+    stk->data = (Elem_t *) ((canary_t *) stk->data + 1);
+    *((canary_t *)(stk->data + SIZESTK)) = CANARY_VALUE_DATA_RIGHT;
 
-    stk->canary_left = CANARY_VALUE_STACK;
+    stk->canary_left = CANARY_VALUE_STACK_LEFT;
     for (size_t i = 0; i < SIZESTK; i++)
         stk->data[i] = POISON;
     stk->capacity = SIZESTK;
@@ -40,7 +45,7 @@ enum Result StackCtor(Stack *stk, const char *name, const char *file, const int 
     stk->name = name;
     stk->file = file;
     stk->line = line;
-    stk->canary_right = CANARY_VALUE_STACK;
+    stk->canary_right = CANARY_VALUE_STACK_RIGHT;
     stk->bite_sum = Bitessum(stk);
 
     return SUCCESS;
@@ -104,7 +109,7 @@ enum Result StackDtor(Stack *stk, Hash *hsh) {
     assert(stk);
     assert(hsh);
 
-    free(stk->data - sizeof (canary_t) / sizeof (Elem_t));
+    free((canary_t *)stk->data - 1);
     stk->capacity = -1;
     stk->size = -1;
     stk->name = NULL;
@@ -128,9 +133,9 @@ void PrintStack(const Stack *stk, const Hash *hsh) {
         dump(stk ,error)
     }
     else {
+        printf("POISON VALUE = " output_id "\n", POISON);
         for (size_t i = 0; i < stk->capacity; i++)
-            if (stk->data[i] != POISON)
-                printf("%d ", stk->data[i]);
+            printf(output_id " ", stk->data[i]);
         printf("\n");
     }
 
@@ -167,7 +172,19 @@ unsigned int StackVerify(const Stack *stk, const Hash *hsh) {
         error |= numerror;
 
     numerror *= 2;
-    if (stk->canary_left != CANARY_VALUE_STACK | stk->canary_right != CANARY_VALUE_STACK | ((canary_t *) stk->data)[-1] != CANARY_VALUE_DATA | *((canary_t *) (stk->data + stk->capacity)) != CANARY_VALUE_DATA)
+    if (stk->canary_left != CANARY_VALUE_STACK_LEFT)
+        error |= numerror;
+
+    numerror *= 2;
+    if (stk->canary_right != CANARY_VALUE_STACK_RIGHT)
+        error |= numerror;
+
+    numerror *= 2;
+    if (((canary_t *)(stk->data))[-1] != CANARY_VALUE_DATA_LEFT)
+        error |= numerror;
+
+    numerror *= 2;
+    if (*((canary_t *)(stk->data + stk->capacity)) != CANARY_VALUE_DATA_RIGHT)
         error |= numerror;
 
     numerror *= 2;
@@ -189,7 +206,11 @@ const char* StackStrError (enum Result error) {
         ERR_ (INCORRECT_CAPACITY)
         ERR_ (INCORRECT_SIZE)
         ERR_ (OVERFLOW)
-        ERR_ (CANARY_FAULT)
+        ERR_ (CANARY_FAULT_STACK_LEFT)
+        ERR_ (CANARY_FAULT_STACK_RIGHT)
+        ERR_ (CANARY_FAULT_DATA_LEFT)
+        ERR_ (CANARY_FAULT_DATA_RIGHT)
+        ERR_ (HASH_ERROR)
         ERR_ (ERROR)
         ERR_ (EMPTY)
 
@@ -236,39 +257,53 @@ void PrintInfo(const Stack *stk, const char *file, const char *func, const int l
     printf("{size = %d\n capacity = %d\n data [%p]\n", stk->size, stk->capacity, stk->data);
     if (stk->capacity > 0 && stk->data) {
         printf("\t{\n");
-        for (size_t i = 0; i < stk->capacity && col < EMPTY_POSITIONS; i++)
-            if (stk->data[i] == POISON) {
+        for (size_t i = 0; i < stk->capacity && col < EMPTY_POSITIONS; i++) {
+            if (compare(stk->data + i, POISON_PTR)) {
                 col++;
                 printf("\t [%lu] = POISON\n", i);
+                continue;
             }
-            else {
-                printf("\t*[%lu] = %d\n", i, stk->data[i]);
-            }
+            printf("\t*[%lu] = " output_id "\n", i, stk->data[i]);
+        }
         printf("\t}\n");
     }
     printf("}\n");
 }
 
-Elem_t *StackResize(Stack *stk, const int operation) {
+Elem_t *StackResize(Stack *stk, const int is_increase) {
 
     assert(stk);
 
-    if (operation) {
+    if (is_increase) {
         stk->capacity *= INCREASE;
-        Elem_t *data = (Elem_t *) realloc (stk, sizeof (Elem_t) * stk->capacity + 2 * sizeof (canary_t));
-        data += sizeof (canary_t) / sizeof (Elem_t);
+        Elem_t *data = (Elem_t *) realloc (((canary_t *)stk->data - 1), sizeof (Elem_t) * stk->capacity + 2 * sizeof (canary_t));
+        data = (Elem_t *)((canary_t *)data + 1);
         for (size_t i = stk->size; i < stk->capacity; i++) {
             stk->data[i] = POISON;
         }
-        *((canary_t *)(data + stk->capacity)) = CANARY_VALUE_DATA;
+        *((canary_t *)(data + stk->capacity)) = CANARY_VALUE_DATA_RIGHT;
         return data;
     }
     stk->capacity /= INCREASE;
-    Elem_t *data = (Elem_t *) realloc (stk, sizeof (Elem_t) * stk->capacity + 2 * sizeof (canary_t));
-    data += sizeof (canary_t) / sizeof (Elem_t);
+    Elem_t *data = (Elem_t *) realloc (stk->data, sizeof (Elem_t) * stk->capacity + 2 * sizeof (canary_t));
+    data = (Elem_t *)((canary_t *)data + 1);
     for (size_t i = stk->size; i < stk->capacity; i++) {
         stk->data[i] = POISON;
     }
-    *((canary_t *)(data + stk->capacity)) = CANARY_VALUE_DATA;
+    *((canary_t *)(data + stk->capacity)) = CANARY_VALUE_DATA_RIGHT;
     return data;
+}
+
+int compare(const void *frst, const Elem_t *scnd) {
+
+    assert(frst);
+    assert(scnd);
+
+    char *a = (char *) frst;
+    char *b = (char *) scnd;
+
+    for (size_t i = 0; i < sizeof (Elem_t); i++)
+        if (*a++ != *b++)
+            return 0;
+    return 1;
 }
