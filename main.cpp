@@ -29,8 +29,13 @@ int main() {
     info(d)
 
 
-    for (size_t i = 0; i < 17; i++)
+    for (size_t i = 0; i < 100; i++)
         StackPush(&stk, i);
+
+    info(stk)
+
+    for (size_t i = 100; i > 30; i--)
+        StackPop(&stk, &n);
 
     info(stk)
 

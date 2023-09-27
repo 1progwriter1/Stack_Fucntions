@@ -88,10 +88,11 @@ enum Result StackPop(Stack *stk, Elem_t *n) {
         return ERROR;
     }
     else {
-        if (stk->size - 1 >= 0) {
-            *n = stk->data[--stk->size];
+        if (stk->size >= 1) {
+            *n = stk->data[stk->size];
             stk->data[stk->size] = POISON;
-            if (stk->capacity > SIZESTK && stk->capacity - stk->size > SIZESTK + 5) {
+            --stk->size;
+            if (stk->capacity > SIZESTK && stk->capacity - stk->size > stk->capacity - stk->capacity / 2) {
                 StackResize(stk, CUT);
                 if (!stk->data)
                     return NO_MEMORY;
@@ -290,7 +291,7 @@ enum Result StackResize(Stack *stk, const int is_increase) {
     }
     else {
         stk->capacity /= INCREASE;
-        stk->data = (Elem_t *) realloc (stk->data, sizeof (Elem_t) * stk->capacity + 2 * sizeof (canary_t));
+        stk->data = (Elem_t *) realloc ((canary_t *)stk->data - 1, sizeof (Elem_t) * stk->capacity + 2 * sizeof (canary_t));
         if (!stk->data)
             return NO_MEMORY;
         stk->data = (Elem_t *)((canary_t *)stk->data + 1);
