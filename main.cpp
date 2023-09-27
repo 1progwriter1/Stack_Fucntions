@@ -11,14 +11,14 @@
  */
 
 #define info(stk) PrintInfo(&stk, (char *)__FILE__, (char *)__func__, __LINE__);
-#define STACK_CTOR(stk, id) StackCtor(&stk, #stk, (char *)__FILE__, __LINE__, (char *)__func__, &id);
+#define STACK_CTOR(stk) StackCtor(&stk, #stk, (char *)__FILE__, __LINE__, (char *)__func__, &current_id);
 int current_id = 0;
 
 int main() {
 
     Stack stk = {};
 
-    STACK_CTOR(stk, current_id)
+    STACK_CTOR(stk)
 
 
     for (size_t i = 0; i < 100; i++)
