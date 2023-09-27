@@ -17,20 +17,28 @@ int current_id = 0;
 int main() {
 
     Stack stk = {};
+    Stack d = {};
 
     STACK_CTOR(stk)
+    STACK_CTOR(d)
+
+    Elem_t n = 0;
+    StackPush(&d, 9);
+    StackPop(&d, &n);
+
+    info(d)
 
 
-    for (size_t i = 0; i < 100; i++)
+    for (size_t i = 0; i < 17; i++)
         StackPush(&stk, i);
 
     info(stk)
 
-    Detor();
 
     #ifdef log_file
     fileclose(FILE *fn)
     #endif
 
+    // Detor();
     return 0;
 }

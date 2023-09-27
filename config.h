@@ -7,5 +7,5 @@ typedef int Elem_t;
 
 const Elem_t POISON = -1e6;
 // #define logs_file "your_file" -- an example of file define
-// #define logs_file "logs.txt"
+#define logs_file "logs.txt"
 #endif

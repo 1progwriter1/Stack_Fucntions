@@ -51,7 +51,8 @@ enum Result StackCtor(Stack *stk, const char *name, const char *file, const int 
     stk->id = *id;
     stk->canary_right = CANARY_VALUE_STACK_RIGHT;
     Poison_fill(stk);
-    HashCreate(stk, *id++);
+    HashCreate(stk, *id);
+    *id += 1;
     return SUCCESS;
 }
 
@@ -66,7 +67,7 @@ enum Result StackPush(Stack *stk, Elem_t n) {
     }
     else {
         if (stk->size + 1 >= stk->capacity) {
-            stk->data = StackResize(stk, RAISE);
+            StackResize(stk, RAISE);
             if (!stk->data)
                 return NO_MEMORY;
         }
@@ -91,7 +92,7 @@ enum Result StackPop(Stack *stk, Elem_t *n) {
             *n = stk->data[--stk->size];
             stk->data[stk->size] = POISON;
             if (stk->capacity > SIZESTK && stk->capacity - stk->size > SIZESTK + 5) {
-                stk->data = StackResize(stk, CUT);
+                StackResize(stk, CUT);
                 if (!stk->data)
                     return NO_MEMORY;
             }
@@ -273,24 +274,26 @@ void PrintInfo(const Stack *stk, const char *file, const char *func, const int l
     fprintf(output_file, "}\n");
 }
 
-Elem_t *StackResize(Stack *stk, const int is_increase) {
+enum Result StackResize(Stack *stk, const int is_increase) {
 
     assert(stk);
 
+    Elem_t *data = NULL;
     if (is_increase) {
         stk->capacity *= INCREASE;
-        Elem_t *data = (Elem_t *) realloc (((canary_t *)stk->data - 1), sizeof (Elem_t) * stk->capacity + 2 * sizeof (canary_t));
-        data = (Elem_t *)((canary_t *)data + 1);
+        stk->data = (Elem_t *) realloc ((canary_t *)stk->data - 1, sizeof (Elem_t) * stk->capacity + 2 * sizeof (canary_t));
+        stk->data = (Elem_t *)((canary_t *)stk->data + 1);
+        *((canary_t *)(stk->data + stk->capacity)) = CANARY_VALUE_DATA_RIGHT;
         Poison_fill(stk);
-        *((canary_t *)(data + stk->capacity)) = CANARY_VALUE_DATA_RIGHT;
-        return data;
     }
-    stk->capacity /= INCREASE;
-    Elem_t *data = (Elem_t *) realloc (stk->data, sizeof (Elem_t) * stk->capacity + 2 * sizeof (canary_t));
-    data = (Elem_t *)((canary_t *)data + 1);
-    Poison_fill(stk);
-    *((canary_t *)(data + stk->capacity)) = CANARY_VALUE_DATA_RIGHT;
-    return data;
+    else {
+        stk->capacity /= INCREASE;
+        Elem_t *data = (Elem_t *) realloc (stk->data, sizeof (Elem_t) * stk->capacity + 2 * sizeof (canary_t));
+        data = (Elem_t *)((canary_t *)data + 1);
+        *((canary_t *)(data + stk->capacity)) = CANARY_VALUE_DATA_RIGHT;
+        Poison_fill(stk);
+    }
+    return SUCCESS;
 }
 
 int compare(const void *frst, const Elem_t *scnd) {
