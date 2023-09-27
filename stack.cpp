@@ -1,19 +1,22 @@
 #include <stdio.h>
 #include "stack.h"
-#include "stack_values.h"
 #include "assert.h"
 #include "hash.h"
-#include "config.h"
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
 
 #define dump(stk, error) StackDump(error, (char *)__FILE__, __LINE__, (char *)__func__, stk);
 
+#ifdef logs_file
+FILE *output_file = fileopen(logs_file);
+#else
+FILE *output_file = stdout;
+#endif
 const int SIZESTK = 8;
 const int INCREASE = 2;
 const int EMPTY_POSITIONS = 3;
-const int NUM_OF_ERRORS = 11;
+const int NUM_OF_ERRORS = 12;
 const Elem_t *POISON_PTR = &POISON;
 const canary_t CANARY_VALUE_STACK_LEFT = 0xBADBA5EBA11;
 const canary_t CANARY_VALUE_STACK_RIGHT = 0xAB0BA;
@@ -101,7 +104,7 @@ enum Result StackPop(Stack *stk, Elem_t *n) {
     }
 }
 
-enum Result StackDtor(Stack *stk, int *id) {
+enum Result StackDtor(Stack *stk) {
 
     assert(stk);
 
@@ -116,7 +119,6 @@ enum Result StackDtor(Stack *stk, int *id) {
     stk->canary_right = -1;
     HashClean(stk->id);
     stk->id = -1;
-    *id = *id - 1;
     return SUCCESS;
 };
 
@@ -129,10 +131,10 @@ void PrintStack(const Stack *stk) {
         dump(stk ,error)
     }
     else {
-        printf("POISON VALUE = " output_id "\n", POISON);
+        fprintf(output_file, "POISON VALUE = " output_id "\n", POISON);
         for (size_t i = 0; i < stk->capacity; i++)
-            printf(output_id " ", stk->data[i]);
-        printf("\n");
+            fprintf(output_file, output_id " ", stk->data[i]);
+        fprintf(output_file, "\n");
     }
 
 }
@@ -186,6 +188,10 @@ unsigned int StackVerify(const Stack *stk) {
     if (!HashCheck(stk))
         error |= numerror;
 
+    numerror *= 2;
+    if (stk->id < 0)
+        error |= numerror;
+
     return error;
 }
 
@@ -206,6 +212,7 @@ const char* StackStrError (enum Result error) {
         ERR_ (CANARY_FAULT_DATA_LEFT)
         ERR_ (CANARY_FAULT_DATA_RIGHT)
         ERR_ (HASH_ERROR)
+        ERR_ (ID_ERROR)
         ERR_ (ERROR)
         ERR_ (EMPTY)
 
@@ -222,19 +229,19 @@ void StackDump(unsigned int error, const char *file, const int line, char *func,
     assert(stk);
 
     if (error != 0) {
-        printf("Error codes: ");
+        fprintf(output_file, "Error codes: ");
 
         const int NUMBER = 1;
 
         int err = 0;
         for (int i = 0; i < NUM_OF_ERRORS; i++) {
             if ((error | NUMBER) == error) {
-                printf("%s%d (%s)", (err? ", " : ""), i, StackStrError ((enum Result) i));
+                fprintf(output_file, "%s%d (%s)", (err? ", " : ""), i, StackStrError ((enum Result) i));
                 err = 1;
             }
            error >>= 1;
         }
-        printf("\n");
+        fprintf(output_file, "\n");
 
         PrintInfo(stk, file, func, line);
     }
@@ -248,21 +255,21 @@ void PrintInfo(const Stack *stk, const char *file, const char *func, const int l
 
     int col = 0;
 
-    fprintf(stderr, "Stack \"%s\" [%p] from \"%s\" (%d)\ncalled from \"%s\" (%d)\n", stk->name, stk, stk->file, stk->line, file, line);
-    printf("{size = %d\n capacity = %d\n data [%p]\n", stk->size, stk->capacity, stk->data);
+    fprintf(output_file, "Stack \"%s\" [%p] from \"%s\" (%d)\ncalled from \"%s\" (%d)\n", stk->name, stk, stk->file, stk->line, file, line);
+    fprintf(output_file, "{size = %d\n capacity = %d\n data [%p]\n", stk->size, stk->capacity, stk->data);
     if (stk->capacity > 0 && stk->data) {
-        printf("\t{\n");
+        fprintf(output_file, "\t{\n");
         for (size_t i = 0; i < stk->capacity && col < EMPTY_POSITIONS; i++) {
             if (compare(stk->data + i, POISON_PTR)) {
                 col++;
-                printf("\t [%lu] = POISON\n", i);
+                fprintf(output_file, "\t [%lu] = POISON\n", i);
                 continue;
             }
-            printf("\t*[%lu] = " output_id "\n", i, stk->data[i]);
+            fprintf(output_file, "\t*[%lu] = " output_id "\n", i, stk->data[i]);
         }
-        printf("\t}\n");
+        fprintf(output_file, "\t}\n");
     }
-    printf("}\n");
+    fprintf(output_file, "}\n");
 }
 
 Elem_t *StackResize(Stack *stk, const int is_increase) {
@@ -305,4 +312,25 @@ int compare(const void *frst, const Elem_t *scnd) {
 
 void Detor() {
     clean();
+}
+
+void fileclose(FILE *fn) {
+
+    assert(fn);
+
+    if (fn != stdout)
+        if (fclose(fn) != 0)
+            fprintf(stderr, "File not closed\n");
+}
+
+FILE *fileopen(const char *filename) {
+
+    assert(filename);
+
+    FILE *fn = fopen(filename, "w");
+
+    if (fn == NULL)
+        perror("");
+
+    return fn;
 }

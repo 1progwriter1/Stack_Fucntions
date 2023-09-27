@@ -33,6 +33,7 @@ enum Result {
     CANARY_FAULT_DATA_LEFT,
     CANARY_FAULT_DATA_RIGHT,
     HASH_ERROR,
+    ID_ERROR,
     ERROR,
     EMPTY
 };

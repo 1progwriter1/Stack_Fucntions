@@ -1,8 +1,6 @@
 #include <stdio.h>
-#include "hash.h"
 #include "assert.h"
-#include "stack_values.h"
-#include "config.h"
+#include "hash.h"
 
 int sizehash = 8;
 static unsigned long long *hash_data = (unsigned long long *) calloc (sizehash, sizeof (unsigned long long));

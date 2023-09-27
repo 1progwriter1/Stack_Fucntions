@@ -3,7 +3,6 @@
 
 #include "stack_values.h"
 #include "hash.h"
-#include "config.h"
 
 unsigned long long HashCount(const Stack *stk);
 enum Result HashCreate(Stack *stk, int id);
