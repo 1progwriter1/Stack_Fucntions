@@ -34,15 +34,15 @@ enum Result StackCtor(Stack *stk, const char *name, const char *file, const int 
         return NULL_POINTER;
     int length = sizeof (Elem_t) * SIZESTK + sizeof (canary_t) * 2;
     stk->data = (Elem_t *) calloc (length, sizeof (char));
+
     if (!stk->data)
         return NO_MEMORY;
+
     ((canary_t *) stk->data)[0] = CANARY_VALUE_DATA_LEFT;
     stk->data = (Elem_t *) ((canary_t *) stk->data + 1);
     *((canary_t *)(stk->data + SIZESTK)) = CANARY_VALUE_DATA_RIGHT;
 
     stk->canary_left = CANARY_VALUE_STACK_LEFT;
-    for (size_t i = 0; i < SIZESTK; i++)
-        stk->data[i] = POISON;
     stk->capacity = SIZESTK;
     stk->size = 0;
     stk->name = name;
@@ -50,6 +50,7 @@ enum Result StackCtor(Stack *stk, const char *name, const char *file, const int 
     stk->line = line;
     stk->id = *id;
     stk->canary_right = CANARY_VALUE_STACK_RIGHT;
+    Poison_fill(stk);
     HashCreate(stk, *id++);
     return SUCCESS;
 }
@@ -280,18 +281,14 @@ Elem_t *StackResize(Stack *stk, const int is_increase) {
         stk->capacity *= INCREASE;
         Elem_t *data = (Elem_t *) realloc (((canary_t *)stk->data - 1), sizeof (Elem_t) * stk->capacity + 2 * sizeof (canary_t));
         data = (Elem_t *)((canary_t *)data + 1);
-        for (size_t i = stk->size; i < stk->capacity; i++) {
-            stk->data[i] = POISON;
-        }
+        Poison_fill(stk);
         *((canary_t *)(data + stk->capacity)) = CANARY_VALUE_DATA_RIGHT;
         return data;
     }
     stk->capacity /= INCREASE;
     Elem_t *data = (Elem_t *) realloc (stk->data, sizeof (Elem_t) * stk->capacity + 2 * sizeof (canary_t));
     data = (Elem_t *)((canary_t *)data + 1);
-    for (size_t i = stk->size; i < stk->capacity; i++) {
-        stk->data[i] = POISON;
-    }
+    Poison_fill(stk);
     *((canary_t *)(data + stk->capacity)) = CANARY_VALUE_DATA_RIGHT;
     return data;
 }
@@ -333,4 +330,12 @@ FILE *fileopen(const char *filename) {
         perror("");
 
     return fn;
+}
+
+void Poison_fill(Stack *stk) {
+
+    assert(stk);
+
+    for (size_t i = stk->size; i < stk->capacity; i++)
+        stk->data[i] = POISON;
 }

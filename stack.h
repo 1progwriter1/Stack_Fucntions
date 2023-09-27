@@ -17,5 +17,6 @@ int compare(const void *frst, const Elem_t *scnd);
 void Detor();
 void fileclose(FILE *fn);
 FILE *fileopen(const char *filename);
+void Poison_fill(Stack *stk);
 
 #endif
