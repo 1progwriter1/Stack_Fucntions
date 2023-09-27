@@ -16,6 +16,16 @@ int current_id = 0;
 
 int main() {
 
+    Stack stk = {};
+
+    STACK_CTOR(stk, current_id)
+
+
+    for (size_t i = 0; i < 100; i++)
+        StackPush(&stk, i);
+
+    info(stk)
+
     Detor();
 
     #ifdef log_file

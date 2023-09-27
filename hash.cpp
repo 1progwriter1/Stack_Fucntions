@@ -11,7 +11,7 @@ unsigned long long HashCount(const Stack *stk) {
 
     unsigned long long bitessum = 5381;
     const int NUM_OF_BITES = stk->capacity * sizeof (Elem_t) + 2 * sizeof (canary_t);
-    char *ptr = (char *)(stk->data - sizeof (canary_t) / sizeof (Elem_t));
+    char *ptr = (char *) stk->data - sizeof (canary_t);
 
     for (size_t i = 0; i < NUM_OF_BITES; i++) {
         if (i == 8) {
