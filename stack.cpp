@@ -282,15 +282,19 @@ enum Result StackResize(Stack *stk, const int is_increase) {
     if (is_increase) {
         stk->capacity *= INCREASE;
         stk->data = (Elem_t *) realloc ((canary_t *)stk->data - 1, sizeof (Elem_t) * stk->capacity + 2 * sizeof (canary_t));
+        if (!stk->data)
+            return NO_MEMORY;
         stk->data = (Elem_t *)((canary_t *)stk->data + 1);
         *((canary_t *)(stk->data + stk->capacity)) = CANARY_VALUE_DATA_RIGHT;
         Poison_fill(stk);
     }
     else {
         stk->capacity /= INCREASE;
-        Elem_t *data = (Elem_t *) realloc (stk->data, sizeof (Elem_t) * stk->capacity + 2 * sizeof (canary_t));
-        data = (Elem_t *)((canary_t *)data + 1);
-        *((canary_t *)(data + stk->capacity)) = CANARY_VALUE_DATA_RIGHT;
+        stk->data = (Elem_t *) realloc (stk->data, sizeof (Elem_t) * stk->capacity + 2 * sizeof (canary_t));
+        if (!stk->data)
+            return NO_MEMORY;
+        stk->data = (Elem_t *)((canary_t *)stk->data + 1);
+        *((canary_t *)(stk->data + stk->capacity)) = CANARY_VALUE_DATA_RIGHT;
         Poison_fill(stk);
     }
     return SUCCESS;

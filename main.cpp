@@ -39,6 +39,6 @@ int main() {
     fileclose(FILE *fn)
     #endif
 
-    // Detor();
+    Detor();
     return 0;
 }
