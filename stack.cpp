@@ -180,18 +180,15 @@ unsigned int StackVerify(const Stack *stk) {
         error |= numerror;
 
     numerror *= 2;
-    if (stk->data != NULL)  {
-        if (((canary_t *)(stk->data))[-1] != CANARY_VALUE_DATA_LEFT)
-            error |= numerror;
 
-        numerror *= 2;
-        if (*((canary_t *)(stk->data + stk->capacity)) != CANARY_VALUE_DATA_RIGHT)
-            error |= numerror;
-
-        numerror *= 2;
-        if (!HashCheck(stk))
-            error |= numerror;
-    }
+    if (((canary_t *)(stk->data))[-1] != CANARY_VALUE_DATA_LEFT)
+        error |= numerror;
+    numerror *= 2;
+    if (*((canary_t *)(stk->data + stk->capacity)) != CANARY_VALUE_DATA_RIGHT)
+        error |= numerror;
+    numerror *= 2;
+    if (!HashCheck(stk))
+        error |= numerror;
 
     numerror *= 2;
     if (stk->id < 0)

@@ -18,6 +18,16 @@ int current_id = 0;
 
 int main() {
 
+    Stack stk = {};
+
+    STACK_CTOR(stk);
+
+    // stk.data[0] = 1;
+
+    stk.data = NULL;
+
+    StackPush(&stk, 9);
+
     #ifdef log_file
     fileclose(FILE *fn)
     #endif
