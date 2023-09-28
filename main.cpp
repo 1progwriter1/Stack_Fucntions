@@ -2,6 +2,8 @@
 #include "stack.h"
 #include "stack_values.h"
 #include "config.h"
+#include <stdlib.h>
+#include <assert.h>
 
 /**
  * Stack Functions.
@@ -15,30 +17,6 @@
 int current_id = 0;
 
 int main() {
-
-    Stack stk = {};
-    Stack d = {};
-
-    STACK_CTOR(stk)
-    STACK_CTOR(d)
-
-    Elem_t n = 0;
-    StackPush(&d, 9);
-    StackPop(&d, &n);
-
-    info(d)
-
-
-    for (size_t i = 0; i < 100; i++)
-        StackPush(&stk, i);
-
-    info(stk)
-
-    for (size_t i = 100; i > 30; i--)
-        StackPop(&stk, &n);
-
-    info(stk)
-
 
     #ifdef log_file
     fileclose(FILE *fn)

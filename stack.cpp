@@ -150,13 +150,13 @@ unsigned int StackVerify(const Stack *stk) {
 
     int numerror = 2;
 
-    if (!stk) {
+    if (stk == NULL) {
         error |= numerror;
         return error;
     }
 
     numerror *= 2;
-    if (!stk->data)
+    if (stk->data == NULL)
         error |= numerror;
 
     numerror *= 2;
@@ -180,16 +180,18 @@ unsigned int StackVerify(const Stack *stk) {
         error |= numerror;
 
     numerror *= 2;
-    if (((canary_t *)(stk->data))[-1] != CANARY_VALUE_DATA_LEFT)
-        error |= numerror;
+    if (stk->data != NULL)  {
+        if (((canary_t *)(stk->data))[-1] != CANARY_VALUE_DATA_LEFT)
+            error |= numerror;
 
-    numerror *= 2;
-    if (*((canary_t *)(stk->data + stk->capacity)) != CANARY_VALUE_DATA_RIGHT)
-        error |= numerror;
+        numerror *= 2;
+        if (*((canary_t *)(stk->data + stk->capacity)) != CANARY_VALUE_DATA_RIGHT)
+            error |= numerror;
 
-    numerror *= 2;
-    if (!HashCheck(stk))
-        error |= numerror;
+        numerror *= 2;
+        if (!HashCheck(stk))
+            error |= numerror;
+    }
 
     numerror *= 2;
     if (stk->id < 0)
@@ -257,12 +259,11 @@ void PrintInfo(const Stack *stk, const char *file, const char *func, const int l
     assert(func);
 
     int col = 0;
-
     fprintf(output_file, "Stack \"%s\" [%p] from \"%s\" (%d)\ncalled from \"%s\" (%d)\n", stk->name, stk, stk->file, stk->line, file, line);
-    fprintf(output_file, "{size = %d\n capacity = %d\n data [%p]\n", stk->size, stk->capacity, stk->data);
+        fprintf(output_file, "{size = %d\n capacity = %d\n data [%p]\n", stk->size, stk->capacity, stk->data);
     if (stk->capacity > 0 && stk->data) {
         fprintf(output_file, "\t{\n");
-        for (size_t i = 0; i < stk->capacity && col < EMPTY_POSITIONS; i++) {
+        for (size_t i = 0; i < stk->capacity && col < EMPTY_POSITIONS && stk->data != NULL; i++) {
             if (compare(stk->data + i, POISON_PTR)) {
                 col++;
                 fprintf(output_file, "\t [%lu] = POISON\n", i);
