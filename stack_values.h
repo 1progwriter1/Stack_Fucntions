@@ -11,8 +11,8 @@ const int CUT = 0;
 struct Stack {
     canary_t canary_left;
     Elem_t *data;
-    Elem_t size;
-    Elem_t capacity;
+    int size;
+    int capacity;
     const char *name;
     const char *file;
     int line;
@@ -37,5 +37,8 @@ enum Result {
     ERROR,
     EMPTY
 };
+
+typedef short int canar_t;
+
 
 #endif

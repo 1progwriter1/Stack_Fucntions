@@ -17,13 +17,14 @@ const int SIZESTK = 8;
 const int INCREASE = 2;
 const int EMPTY_POSITIONS = 3;
 const int NUM_OF_ERRORS = 12;
+static int Current_id = 0;
 const Elem_t *POISON_PTR = &POISON;
 const canary_t CANARY_VALUE_STACK_LEFT = 0xBADBA5EBA11;
 const canary_t CANARY_VALUE_STACK_RIGHT = 0xAB0BA;
 const canary_t CANARY_VALUE_DATA_LEFT = 0xC01055A1;
 const canary_t CANARY_VALUE_DATA_RIGHT = 0xBADFACE;
 
-enum Result StackCtor(Stack *stk, const char *name, const char *file, const int line, const char *func, int *id) {
+enum Result StackCtor(Stack *stk, const char *name, const char *file, const int line, const char *func) {
 
     assert(stk);
     assert(name);
@@ -32,27 +33,28 @@ enum Result StackCtor(Stack *stk, const char *name, const char *file, const int 
 
     if (!stk)
         return NULL_POINTER;
-    int length = sizeof (Elem_t) * SIZESTK + sizeof (canary_t) * 2;
-    stk->data = (Elem_t *) calloc (length, sizeof (char));
+
+    #ifdef PROTECT
+    SetCanary(stk);
+    stk->canary_left = CANARY_VALUE_STACK_LEFT;
+    stk->canary_right = CANARY_VALUE_STACK_RIGHT;
+    #else
+    stk->data = (Elem_t *) calloc (SIZESTK, sizeof (Elem_t));
+    #endif
 
     if (!stk->data)
         return NO_MEMORY;
 
-    ((canary_t *) stk->data)[0] = CANARY_VALUE_DATA_LEFT;
-    stk->data = (Elem_t *) ((canary_t *) stk->data + 1);
-    *((canary_t *)(stk->data + SIZESTK)) = CANARY_VALUE_DATA_RIGHT;
-
-    stk->canary_left = CANARY_VALUE_STACK_LEFT;
     stk->capacity = SIZESTK;
     stk->size = 0;
     stk->name = name;
     stk->file = file;
     stk->line = line;
-    stk->id = *id;
-    stk->canary_right = CANARY_VALUE_STACK_RIGHT;
+    stk->id = Current_id++;
     Poison_fill(stk);
-    HashCreate(stk, *id);
-    *id += 1;
+    #ifdef PROTECT
+    HashCreate(stk);
+    #endif
     return SUCCESS;
 }
 
@@ -65,16 +67,16 @@ enum Result StackPush(Stack *stk, Elem_t n) {
         dump(stk, error)
         return ERROR;
     }
-    else {
-        if (stk->size + 1 >= stk->capacity) {
-            StackResize(stk, RAISE);
-            if (!stk->data)
-                return NO_MEMORY;
-        }
-        stk->data[stk->size++] = n;
-        HashCreate(stk, stk->id);
-        return SUCCESS;
+    if (stk->size >= stk->capacity) {
+        StackResize(stk, RAISE);
+        if (!stk->data)
+            return NO_MEMORY;
     }
+    stk->data[stk->size++] = n;
+    #ifdef PROTECT
+    HashCreate(stk);
+    #endif
+    return SUCCESS;
 }
 
 enum Result StackPop(Stack *stk, Elem_t *n) {
@@ -87,40 +89,40 @@ enum Result StackPop(Stack *stk, Elem_t *n) {
         dump(stk, error)
         return ERROR;
     }
-    else {
-        if (stk->size >= 1) {
-            *n = stk->data[stk->size];
-            stk->data[stk->size] = POISON;
-            --stk->size;
-            if (stk->capacity > SIZESTK && stk->capacity - stk->size > stk->capacity - stk->capacity / 2) {
-                StackResize(stk, CUT);
-                if (!stk->data)
-                    return NO_MEMORY;
+    if (stk->size >= 1) {
+        *n = stk->data[--stk->size];
+        stk->data[stk->size + 1] = POISON;
+        if (stk->capacity > SIZESTK && stk->capacity - stk->size > stk->capacity - stk->capacity / 2) {
+            StackResize(stk, CUT);
+            if (!stk->data)
+                return NO_MEMORY;
             }
-            HashCreate(stk, stk->id);
-
-        }
-        else {
-            return EMPTY;
-        }
+        #ifdef PROTECT
+        HashCreate(stk);
+        #endif
         return SUCCESS;
     }
+    return EMPTY;
 }
 
 enum Result StackDtor(Stack *stk) {
 
     assert(stk);
 
+    #ifdef PROTECT
     free((canary_t *)stk->data - 1);
+    stk->canary_left = -1;
+    stk->canary_right = -1;
+    HashClean(stk->id);
+    #else
+    free(stk->data);
+    #endif
     stk->capacity = -1;
     stk->size = -1;
     stk->name = NULL;
     stk->file = NULL;
     stk->line = NULL;
     stk->func = NULL;
-    stk->canary_left = -1;
-    stk->canary_right = -1;
-    HashClean(stk->id);
     stk->id = -1;
     return SUCCESS;
 };
@@ -150,14 +152,10 @@ unsigned int StackVerify(const Stack *stk) {
 
     int numerror = 2;
 
-    if (stk == NULL) {
+    if (stk == NULL)
         error |= numerror;
-        return error;
-    }
 
     numerror *= 2;
-    if (stk->data == NULL)
-        error |= numerror;
 
     numerror *= 2;
     if (stk->capacity < 0)
@@ -168,9 +166,10 @@ unsigned int StackVerify(const Stack *stk) {
         error |= numerror;
 
     numerror *= 2;
-    if (stk->size >= stk->capacity)
+    if (stk->size > stk->capacity)
         error |= numerror;
 
+    #ifdef PROTECT
     numerror *= 2;
     if (stk->canary_left != CANARY_VALUE_STACK_LEFT)
         error |= numerror;
@@ -183,12 +182,15 @@ unsigned int StackVerify(const Stack *stk) {
 
     if (((canary_t *)(stk->data))[-1] != CANARY_VALUE_DATA_LEFT)
         error |= numerror;
+
     numerror *= 2;
     if (*((canary_t *)(stk->data + stk->capacity)) != CANARY_VALUE_DATA_RIGHT)
         error |= numerror;
+
     numerror *= 2;
     if (!HashCheck(stk))
         error |= numerror;
+    #endif
 
     numerror *= 2;
     if (stk->id < 0)
@@ -273,30 +275,23 @@ void PrintInfo(const Stack *stk, const char *file, const char *func, const int l
     fprintf(output_file, "}\n");
 }
 
-enum Result StackResize(Stack *stk, const int is_increase) {
+void StackResize(Stack *stk, const int is_increase) {
 
     assert(stk);
 
-    Elem_t *data = NULL;
-    if (is_increase) {
+    if (is_increase)
         stk->capacity *= INCREASE;
-        stk->data = (Elem_t *) realloc ((canary_t *)stk->data - 1, sizeof (Elem_t) * stk->capacity + 2 * sizeof (canary_t));
-        if (!stk->data)
-            return NO_MEMORY;
-        stk->data = (Elem_t *)((canary_t *)stk->data + 1);
-        *((canary_t *)(stk->data + stk->capacity)) = CANARY_VALUE_DATA_RIGHT;
-        Poison_fill(stk);
-    }
-    else {
+    else
         stk->capacity /= INCREASE;
-        stk->data = (Elem_t *) realloc ((canary_t *)stk->data - 1, sizeof (Elem_t) * stk->capacity + 2 * sizeof (canary_t));
-        if (!stk->data)
-            return NO_MEMORY;
-        stk->data = (Elem_t *)((canary_t *)stk->data + 1);
-        *((canary_t *)(stk->data + stk->capacity)) = CANARY_VALUE_DATA_RIGHT;
-        Poison_fill(stk);
-    }
-    return SUCCESS;
+
+    #ifdef PROTECT
+    stk->data = (Elem_t *) realloc ((canary_t *)stk->data - 1, sizeof (Elem_t) * stk->capacity + 2 * sizeof (canary_t));
+    stk->data = (Elem_t *) ((canary_t *) stk->data + 1);
+    *((canary_t *)(stk->data + stk->capacity)) = CANARY_VALUE_DATA_RIGHT;
+    #else
+    stk->data = (Elem_t *) realloc (stk->data, sizeof (Elem_t) * stk->capacity);
+    #endif
+    Poison_fill(stk);
 }
 
 int compare(const void *frst, const Elem_t *scnd) {
@@ -344,4 +339,17 @@ void Poison_fill(Stack *stk) {
 
     for (size_t i = stk->size; i < stk->capacity; i++)
         stk->data[i] = POISON;
+}
+
+static void SetCanary(Stack *stk) {
+
+    assert(stk);
+    int length = sizeof (Elem_t) * SIZESTK + sizeof (canary_t) * 2;
+    stk->data = (Elem_t *) calloc (length, sizeof (char));
+
+    if (stk->data) {
+        ((canary_t *) stk->data)[0] = CANARY_VALUE_DATA_LEFT;
+        stk->data = (Elem_t *) ((canary_t *) stk->data + 1);
+        *((canary_t *)(stk->data + SIZESTK)) = CANARY_VALUE_DATA_RIGHT;
+    }
 }
