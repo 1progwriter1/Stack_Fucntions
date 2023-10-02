@@ -3,14 +3,13 @@
 #include "hash.h"
 
 int sizehash = 8;
-static unsigned long long *hash_data = (unsigned long long *) calloc (sizehash, sizeof (unsigned long long));
-
+static unsigned long long *hash_data = NULL;
 unsigned long long HashCount(const Stack *stk) {
 
     assert(stk);
 
     unsigned long long bytesum = 5381;
-    int NUM_OF_BITES = stk->capacity * sizeof (Elem_t) + 2 * sizeof (canar_t);
+    int NUM_OF_BITES = stk->capacity * sizeof (Elem_t) + 2 * sizeof (canary_t);
     char *ptr = (char *) stk->data - sizeof (canary_t);
 
     for (size_t i = 0; i < NUM_OF_BITES; i++) {
@@ -28,6 +27,9 @@ unsigned long long HashCount(const Stack *stk) {
 }
 
 enum Result HashCreate(Stack *stk) {
+
+    if (!hash_data)
+        hash_data = (unsigned long long *) calloc (sizehash, sizeof (unsigned long long));
 
     if (stk->id >= sizehash) {
          sizehash *= 2;

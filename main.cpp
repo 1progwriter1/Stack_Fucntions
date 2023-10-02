@@ -13,10 +13,15 @@
  * Detor() is necessary for memory clean and fileclose is necessary to close the log file
  */
 
-#define info(stk) PrintInfo(&stk, (char *)__FILE__, (char *)__func__, __LINE__);
-#define STACK_CTOR(stk) StackCtor(&stk, #stk, (char *)__FILE__, __LINE__, (char *)__func__);
 
 int main() {
+
+    Stack stk;
+    STACK_CTOR(stk);
+
+    printf("%d", n);
+
+    PrintStack(&stk);
 
     #ifdef log_file
     fileclose(FILE *fn)

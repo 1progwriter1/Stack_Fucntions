@@ -24,6 +24,16 @@ const canary_t CANARY_VALUE_STACK_RIGHT = 0xAB0BA;
 const canary_t CANARY_VALUE_DATA_LEFT = 0xC01055A1;
 const canary_t CANARY_VALUE_DATA_RIGHT = 0xBADFACE;
 
+static void PrintInfo(const Stack *stk, const char *file, const char *func, const int line);
+static unsigned int StackVerify(const Stack *stk);
+static const char* StackStrError (enum Result error);
+static void InfoDetor(StackInfo *info);
+static void StackDump(unsigned int error, const char *file, const int line, char *func, const Stack *stk);
+static void StackResize(Stack *stk, const int is_increase);
+static void Poison_fill(Stack *stk);
+static void SetCanary(Stack *stk);
+
+
 enum Result StackCtor(Stack *stk, const char *name, const char *file, const int line, const char *func) {
 
     assert(stk);
@@ -47,9 +57,10 @@ enum Result StackCtor(Stack *stk, const char *name, const char *file, const int 
 
     stk->capacity = SIZESTK;
     stk->size = 0;
-    stk->name = name;
-    stk->file = file;
-    stk->line = line;
+    stk->info.name = name;
+    stk->info.file = file;
+    stk->info.line = line;
+    stk->info.func = func;
     stk->id = Current_id++;
     Poison_fill(stk);
     #ifdef PROTECT
@@ -119,10 +130,7 @@ enum Result StackDtor(Stack *stk) {
     #endif
     stk->capacity = -1;
     stk->size = -1;
-    stk->name = NULL;
-    stk->file = NULL;
-    stk->line = NULL;
-    stk->func = NULL;
+    InfoDetor(&stk->info);
     stk->id = -1;
     return SUCCESS;
 };
@@ -136,15 +144,27 @@ void PrintStack(const Stack *stk) {
         dump(stk ,error)
     }
     else {
-        fprintf(output_file, "POISON VALUE = " output_id "\n", POISON);
-        for (size_t i = 0; i < stk->capacity; i++)
-            fprintf(output_file, output_id " ", stk->data[i]);
-        fprintf(output_file, "\n");
+        if (stk->data) {
+            int col = 0;
+            fprintf(output_file, "capacity = %d\n", stk->capacity);
+            for (size_t i = 0; i < stk->capacity && col < 3; i++) {
+                if (memcmp((char *)(stk->data + i), (char *) POISON_PTR, sizeof (Elem_t)) == 0) {
+                    col++;
+                    fprintf(output_file, "[%lu] = POISON\n", i);
+                }
+                else {
+                    fprintf(output_file, "[%lu] = " output_id "\n", i, stk->data[i]);
+                }
+            }
+        }
+        else {
+            fprintf(output_file, "Unable to print Stack %s", stk->info.name);
+        }
     }
 
 }
 
-unsigned int StackVerify(const Stack *stk) {
+static unsigned int StackVerify(const Stack *stk, int *able_to_ptint) {
 
     assert(stk);
 
@@ -152,10 +172,14 @@ unsigned int StackVerify(const Stack *stk) {
 
     int numerror = 2;
 
-    if (stk == NULL)
+    if (stk == NULL) {
         error |= numerror;
+        return error;
+    }
 
     numerror *= 2;
+    if (stk->data == NULL)
+        error |= numerror;
 
     numerror *= 2;
     if (stk->capacity < 0)
@@ -171,21 +195,26 @@ unsigned int StackVerify(const Stack *stk) {
 
     #ifdef PROTECT
     numerror *= 2;
-    if (stk->canary_left != CANARY_VALUE_STACK_LEFT)
+    if (stk->canary_left != CANARY_VALUE_STACK_LEFT) {
         error |= numerror;
+    }
 
     numerror *= 2;
     if (stk->canary_right != CANARY_VALUE_STACK_RIGHT)
         error |= numerror;
 
-    numerror *= 2;
-
-    if (((canary_t *)(stk->data))[-1] != CANARY_VALUE_DATA_LEFT)
-        error |= numerror;
 
     numerror *= 2;
-    if (*((canary_t *)(stk->data + stk->capacity)) != CANARY_VALUE_DATA_RIGHT)
-        error |= numerror;
+    if (stk->data != NULL) {
+        if (((canary_t *)(stk->data))[-1] != CANARY_VALUE_DATA_LEFT)
+            error |= numerror;
+    }
+
+    numerror *= 2;
+    if (stk->data != NULL) {
+        if (*((canary_t *)(stk->data + stk->capacity)) != CANARY_VALUE_DATA_RIGHT)
+            error |= numerror;
+    }
 
     numerror *= 2;
     if (!HashCheck(stk))
@@ -199,7 +228,7 @@ unsigned int StackVerify(const Stack *stk) {
     return error;
 }
 
-const char* StackStrError (enum Result error) {
+static const char* StackStrError (enum Result error) {
 
     #define ERR_(code)  case code: return #code;
 
@@ -226,44 +255,51 @@ const char* StackStrError (enum Result error) {
     #undef ERR_
     }
 
-void StackDump(unsigned int error, const char *file, const int line, char *func, const Stack *stk) {
+static void StackDump(unsigned int error, const char *file, const int line, char *func, const Stack *stk) {
 
-    assert(file);
-    assert(func);
-    assert(stk);
+    if (!file)
+        fprintf(output_file, "NULL");
+    if (!func)
+        fprintf(output_file, "NULL");
 
-    if (error != 0) {
-        fprintf(output_file, "Error codes: ");
+    if (stk) {
+        if (error != 0) {
+            fprintf(output_file, "Error codes: ");
 
-        const int NUMBER = 1;
+            const int NUMBER = 1;
 
-        int err = 0;
-        for (int i = 0; i < NUM_OF_ERRORS; i++) {
-            if ((error | NUMBER) == error) {
-                fprintf(output_file, "%s%d (%s)", (err? ", " : ""), i, StackStrError ((enum Result) i));
-                err = 1;
+            int err = 0;
+            for (int i = 0; i < NUM_OF_ERRORS; i++) {
+                if ((error | NUMBER) == error) {
+                    fprintf(output_file, "%s%d (%s)", (err? ", " : ""), i, StackStrError ((enum Result) i));
+                    err = 1;
+                }
+            error >>= 1;
             }
-           error >>= 1;
-        }
-        fprintf(output_file, "\n");
+            fprintf(output_file, "\n");
 
-        PrintInfo(stk, file, func, line);
+            PrintInfo(stk, file, func, line);
+        }
+    }
+    else {
+        fprintf(output_file, "Unable to dump stack");
     }
 }
 
-void PrintInfo(const Stack *stk, const char *file, const char *func, const int line) {
+static void PrintInfo(const Stack *stk, const char *file, const char *func, const int line) {
 
     assert(stk);
     assert(file);
     assert(func);
 
     int col = 0;
-    fprintf(output_file, "Stack \"%s\" [%p] from \"%s\" (%d)\ncalled from \"%s\" (%d)\n", stk->name, stk, stk->file, stk->line, file, line);
+    fprintf(output_file, "Stack \"%s\" [%p] from \"%s\" (%d)\ncalled from \"%s\" (%d)\n", stk->info.name, stk, stk->info.file, stk->info.line, file, line);
         fprintf(output_file, "{size = %d\n capacity = %d\n data [%p]\n", stk->size, stk->capacity, stk->data);
+
     if (stk->capacity > 0 && stk->data) {
         fprintf(output_file, "\t{\n");
-        for (size_t i = 0; i < stk->capacity && col < EMPTY_POSITIONS && stk->data != NULL; i++) {
-            if (compare(stk->data + i, POISON_PTR)) {
+        for (size_t i = 0; i < stk->capacity && col < EMPTY_POSITIONS; i++) {
+            if (memcmp((char *)(stk->data + i), (char *) POISON_PTR, sizeof (Elem_t)) == 0) {
                 col++;
                 fprintf(output_file, "\t [%lu] = POISON\n", i);
                 continue;
@@ -275,7 +311,7 @@ void PrintInfo(const Stack *stk, const char *file, const char *func, const int l
     fprintf(output_file, "}\n");
 }
 
-void StackResize(Stack *stk, const int is_increase) {
+static void StackResize(Stack *stk, const int is_increase) {
 
     assert(stk);
 
@@ -292,20 +328,6 @@ void StackResize(Stack *stk, const int is_increase) {
     stk->data = (Elem_t *) realloc (stk->data, sizeof (Elem_t) * stk->capacity);
     #endif
     Poison_fill(stk);
-}
-
-int compare(const void *frst, const Elem_t *scnd) {
-
-    assert(frst);
-    assert(scnd);
-
-    char *a = (char *) frst;
-    char *b = (char *) scnd;
-
-    for (size_t i = 0; i < sizeof (Elem_t); i++)
-        if (*a++ != *b++)
-            return 0;
-    return 1;
 }
 
 void Detor() {
@@ -333,7 +355,7 @@ FILE *fileopen(const char *filename) {
     return fn;
 }
 
-void Poison_fill(Stack *stk) {
+static void Poison_fill(Stack *stk) {
 
     assert(stk);
 
@@ -352,4 +374,14 @@ static void SetCanary(Stack *stk) {
         stk->data = (Elem_t *) ((canary_t *) stk->data + 1);
         *((canary_t *)(stk->data + SIZESTK)) = CANARY_VALUE_DATA_RIGHT;
     }
+}
+
+static void InfoDetor(StackInfo *info) {
+
+    assert(info);
+
+    info->file = NULL;
+    info->func = NULL;
+    info->line = -1;
+    info->name = NULL;
 }
