@@ -19,7 +19,7 @@ int main() {
     Stack stk;
     STACK_CTOR(stk);
 
-    printf("%d", n);
+    printf("%d", 2);
 
     PrintStack(&stk);
 

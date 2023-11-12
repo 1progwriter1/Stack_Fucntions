@@ -2,6 +2,7 @@
 #define VALUES_STACK
 
 #include "config.h"
+#include "../MyLibraries/systemdata.h"
 
 // #define info(stk) PrintInfo(&stk, (char *)__FILE__, (char *)__func__, __LINE__);
 #define STACK_CTOR(stk) StackCtor(&stk, #stk, (char *)__FILE__, __LINE__, (char *)__func__);
@@ -30,9 +31,8 @@ struct Stack {
 
 
 enum Result {
-    SUCCESS,
-    NULL_POINTER,
-    NO_MEMORY,
+    DATA_NULL_POINTER = 2,
+    STACK_NO_MEMORY,
     INCORRECT_CAPACITY,
     INCORRECT_SIZE,
     OVERFLOW,
@@ -42,8 +42,7 @@ enum Result {
     CANARY_FAULT_DATA_RIGHT,
     HASH_ERROR,
     ID_ERROR,
-    ERROR,
-    EMPTY
+    EMPTY,
 };
 
 #endif

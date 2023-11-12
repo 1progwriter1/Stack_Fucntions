@@ -26,7 +26,7 @@ unsigned long long HashCount(const Stack *stk) {
     return bytesum;
 }
 
-enum Result HashCreate(Stack *stk) {
+int HashCreate(Stack *stk) {
 
     if (!hash_data)
         hash_data = (unsigned long long *) calloc (sizehash, sizeof (unsigned long long));

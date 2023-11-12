@@ -12,7 +12,7 @@
  * @return value of hash
  */
 unsigned long long HashCount(const Stack *stk);
-enum Result HashCreate(Stack *stk);
+int HashCreate(Stack *stk);
 void clean();
 void HashClean(int id);
 int HashCheck(const Stack *stk);

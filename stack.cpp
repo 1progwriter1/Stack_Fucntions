@@ -26,7 +26,7 @@ const canary_t CANARY_VALUE_DATA_RIGHT = 0xBADFACE;
 
 static void PrintInfo(const Stack *stk, const char *file, const char *func, const int line);
 static unsigned int StackVerify(const Stack *stk);
-static const char* StackStrError (enum Result error);
+static const char* StackStrError (int error);
 static void InfoDetor(StackInfo *info);
 static void StackDump(unsigned int error, const char *file, const int line, char *func, const Stack *stk);
 static void StackResize(Stack *stk, const int is_increase);
@@ -34,7 +34,7 @@ static void Poison_fill(Stack *stk);
 static void SetCanary(Stack *stk);
 
 
-enum Result StackCtor(Stack *stk, const char *name, const char *file, const int line, const char *func) {
+int StackCtor(Stack *stk, const char *name, const char *file, const int line, const char *func) {
 
     assert(stk);
     assert(name);
@@ -69,7 +69,7 @@ enum Result StackCtor(Stack *stk, const char *name, const char *file, const int 
     return SUCCESS;
 }
 
-enum Result StackPush(Stack *stk, Elem_t n) {
+int StackPush(Stack *stk, Elem_t n) {
 
     assert(stk);
 
@@ -90,7 +90,7 @@ enum Result StackPush(Stack *stk, Elem_t n) {
     return SUCCESS;
 }
 
-enum Result StackPop(Stack *stk, Elem_t *n) {
+int StackPop(Stack *stk, Elem_t *n) {
 
     assert(stk);
     assert(n);
@@ -116,7 +116,7 @@ enum Result StackPop(Stack *stk, Elem_t *n) {
     return EMPTY;
 }
 
-enum Result StackDtor(Stack *stk) {
+int StackDtor(Stack *stk) {
 
     assert(stk);
 
@@ -164,7 +164,7 @@ void PrintStack(const Stack *stk) {
 
 }
 
-static unsigned int StackVerify(const Stack *stk, int *able_to_ptint) {
+static unsigned int StackVerify(const Stack *stk) {
 
     assert(stk);
 
@@ -228,7 +228,7 @@ static unsigned int StackVerify(const Stack *stk, int *able_to_ptint) {
     return error;
 }
 
-static const char* StackStrError (enum Result error) {
+static const char* StackStrError (int error) {
 
     #define ERR_(code)  case code: return #code;
 
@@ -334,7 +334,7 @@ void Detor() {
     clean();
 }
 
-void fileclose(FILE *fn) {
+void closefile(FILE *fn) {
 
     assert(fn);
 
